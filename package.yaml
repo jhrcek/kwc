@@ -1,52 +1,35 @@
-name:                kwc
-version:             0.1.0.0
-github:              "jhrcek/kwc"
-license:             BSD3
-author:              "Jan Hrček"
-maintainer:          "example@example.com"
-copyright:           "2018 Jan Hrček"
+name: kwc
+version: 0.1.0.0
+github: "jhrcek/kwc"
+license: BSD3
+author: "Jan Hrček"
+maintainer: "example@example.com"
+copyright: "2018 Jan Hrček"
 
 extra-source-files:
 - README.md
 - ChangeLog.md
 
-# Metadata used when publishing your package
-synopsis:            Experimental REST client for interaction with KIE Workbench
-category:            Web
-
-description:         Please see the README on Github at <https://github.com/jhrcek/kwc#readme>
+synopsis: Experimental REST client for interaction with KIE Workbench
+category: Web
+description: Please see the README on Github at <https://github.com/jhrcek/kwc#readme>
 
 dependencies:
 - base >= 4.7 && < 5
 - aeson
-- lens
-- lens-aeson
 - text
 - wreq
-
-library:
-  source-dirs:       src
+- servant-client
+- servant
+- http-client
 
 executables:
-  kwc-exe:
-    main:            Main.hs
-    source-dirs:     app
+  example-exe:
+    main: Main.hs
+    source-dirs: app
     ghc-options:
     - -Wall
+    - -Werror
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
-    dependencies:
-    - kwc
-
-tests:
-  kwc-test:
-    main:            Spec.hs
-    source-dirs:     test
-    ghc-options:
-    - -Wall
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - kwc

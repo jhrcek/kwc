@@ -1,25 +1,37 @@
+{-# LANGUAGE DataKinds         #-}
+{-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeOperators     #-}
+
 module Main where
 
-import Control.Lens ((&), (?~), (^.))
-import Data.Aeson (FromJSON, parseJSON, withObject, (.:))
+import Data.Aeson (FromJSON, ToJSON)
+import Data.Proxy (Proxy (Proxy))
 import Data.Text (Text)
-import Network.Wreq
-
+import GHC.Generics (Generic)
+import Network.HTTP.Client (defaultManagerSettings, newManager)
+import Servant.API ((:>), BasicAuth, BasicAuthData (BasicAuthData), Get, JSON)
+import Servant.Client (BaseUrl (BaseUrl), ClientM, Scheme (Http), client,
+                       mkClientEnv, runClientM)
 main :: IO ()
 main = do
-    r <- getWith opts "https://httpbin.org/basic-auth/user/passwd" >>= asJSON :: IO (Response User)
-    print $ r ^. responseBody
+    mgr <- newManager defaultManagerSettings
+    let auth = BasicAuthData "john" "123"
+        env = mkClientEnv mgr (BaseUrl Http "httpbin.org" 80 "basic-auth")
+    runClientM (basicAuthClient auth) env >>= print
 
-opts :: Options
-opts = defaults & auth ?~ basicAuth "user" "passwd"
+type API = BasicAuth "Fake realm" () :> "john" :> "123" :> Get '[JSON] User
+
+api :: Proxy API
+api = Proxy
 
 data User = User
   { authenticated :: Bool
   , user          :: Text
-  } deriving Show
+  } deriving (Show, Eq, Generic)
 
 instance FromJSON User where
-    parseJSON = withObject "User" $ \v -> User
-        <$> v .: "authenticated"
-        <*> v .: "user"
+instance ToJSON User where
+
+basicAuthClient :: BasicAuthData -> ClientM User
+basicAuthClient = client api
