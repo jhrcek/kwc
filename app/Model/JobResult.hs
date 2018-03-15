@@ -13,7 +13,7 @@ data JobResult = JobResult
     , jobId          :: Text
     , result         :: Text
     , lastModified   :: Int
-    , detailedResult :: [Text]
+    , detailedResult :: Maybe [Text]
     } deriving (Eq, Show, Generic)
 
 instance FromJSON JobResult where
