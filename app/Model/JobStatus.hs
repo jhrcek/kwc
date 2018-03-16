@@ -1,4 +1,5 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric  #-}
 
 module Model.JobStatus where
 
@@ -17,7 +18,4 @@ data JobStatus
     | SERVER_ERROR
     | SUCCESS
     | FAIL
-    deriving (Eq, Show, Generic)
-
-instance FromJSON JobStatus where
-instance ToJSON JobStatus where
+    deriving (Eq, Show, Generic, FromJSON, ToJSON)

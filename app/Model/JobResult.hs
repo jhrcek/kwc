@@ -1,4 +1,5 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric  #-}
 
 module Model.JobResult where
 
@@ -11,10 +12,7 @@ import Model.JobStatus
 data JobResult = JobResult
     { status         :: JobStatus
     , jobId          :: Text
-    , result         :: Text
+    , result         :: Maybe Text
     , lastModified   :: Int
     , detailedResult :: Maybe [Text]
-    } deriving (Eq, Show, Generic)
-
-instance FromJSON JobResult where
-instance ToJSON JobResult where
+    } deriving (Eq, Show, Generic, FromJSON, ToJSON)

@@ -1,4 +1,5 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric  #-}
 
 module Model.Space where
 import Data.Aeson (FromJSON, ToJSON)
@@ -12,7 +13,4 @@ data Space = Space
   , owner          :: Text
   , projects       :: [ProjectResponse]
   , defaultGroupId :: Text
-  } deriving (Show, Eq, Generic)
-
-instance FromJSON Space where
-instance ToJSON Space where
+  } deriving (Show, Eq, Generic, FromJSON, ToJSON)
