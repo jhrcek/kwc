@@ -31,10 +31,10 @@ main = do
     testClient "Create space" . waitForJob $ createSpace testSpace
     testClient "Get spaces" getSpaces
     testClient "Get space" . getSpace $ Space.name testSpace
-    testClient "Create project" . waitForJob $ createProject (Space.name testSpace) testProject
+    testClient "Create project" . waitForJob $ createProject (Space.name testSpace) createProjectReq
     testClient "Get projects" . getProjects $ Space.name testSpace
-    testClient "Get project" $ getProject (Space.name testSpace) (CreateProject.name testProject)
-    testClient "Delete project" . waitForJob $ deleteProject (Space.name testSpace) (CreateProject.name testProject)
+    testClient "Get project" $ getProject (Space.name testSpace) (CreateProject.name createProjectReq)
+    testClient "Delete project" . waitForJob $ deleteProject (Space.name testSpace) (CreateProject.name createProjectReq)
     testClient "Delete space" . waitForJob . deleteSpace $ Space.name testSpace
 
 initClientEnv :: BaseUrl -> IO ClientEnv
@@ -53,6 +53,11 @@ type WorkbenchAPI =
         :<|> "spaces" :> Capture "spaceName" Text :> "projects" :> ReqBody '[JSON] CreateProjectReq :> Post '[JSON] JobResponse
         :<|> "spaces" :> Capture "spaceName" Text :> "projects" :> Capture "projectName" Text :> Get '[JSON] ProjectResponse
         :<|> "spaces" :> Capture "spaceName" Text :> "projects" :> Capture "projectName" Text :> Delete '[JSON] JobResponse
+             -- Maven
+        :<|> "spaces" :> Capture "spaceName" Text :> "projects" :> Capture "projectName" Text :> "maven" :> "compile" :> Post '[JSON] JobResponse
+        :<|> "spaces" :> Capture "spaceName" Text :> "projects" :> Capture "projectName" Text :> "maven" :> "test"    :> Post '[JSON] JobResponse
+        :<|> "spaces" :> Capture "spaceName" Text :> "projects" :> Capture "projectName" Text :> "maven" :> "install" :> Post '[JSON] JobResponse
+        :<|> "spaces" :> Capture "spaceName" Text :> "projects" :> Capture "projectName" Text :> "maven" :> "deploy"  :> Post '[JSON] JobResponse
              -- Jobs
         :<|> "jobs"   :> Capture "jobId" Text     :> Get '[JSON] JobResult
         :<|> "jobs"   :> Capture "jobId" Text     :> Delete '[JSON] JobResult
@@ -62,20 +67,25 @@ workbenchAPI :: Proxy WorkbenchAPI
 workbenchAPI = Proxy
 
 data KieApiClient = KieApiClient
-    { getSpaces     :: ClientM [Space]
-    , createSpace   :: Space -> ClientM JobResponse
-    , getSpace      :: Text -> ClientM Space
-    , deleteSpace   :: Text -> ClientM JobResponse
+    { getSpaces      :: ClientM [Space]
+    , createSpace    :: Space -> ClientM JobResponse
+    , getSpace       :: Text -> ClientM Space
+    , deleteSpace    :: Text -> ClientM JobResponse
 
-    , getProjects   :: Text -> ClientM [ProjectResponse]
-    , createProject :: Text -> CreateProjectReq -> ClientM JobResponse
-    , getProject    :: Text -> Text -> ClientM ProjectResponse
-    , deleteProject :: Text -> Text -> ClientM JobResponse -- TODO replace with newtypes SpaceName, ProjectName, JobId
+    , getProjects    :: Text -> ClientM [ProjectResponse]
+    , createProject  :: Text -> CreateProjectReq -> ClientM JobResponse
+    , getProject     :: Text -> Text -> ClientM ProjectResponse
+    , deleteProject  :: Text -> Text -> ClientM JobResponse -- TODO replace with newtypes SpaceName, ProjectName, JobId
 
-    , getJob        :: Text -> ClientM JobResult
-    , deleteJob     :: Text -> ClientM JobResult
+    , compileProject :: Text -> Text -> ClientM JobResponse
+    , testProject    :: Text -> Text -> ClientM JobResponse
+    , installProject :: Text -> Text -> ClientM JobResponse
+    , deployProject  :: Text -> Text -> ClientM JobResponse
 
-    , waitForJob    :: ClientM JobResponse -> ClientM JobResult
+    , getJob         :: Text -> ClientM JobResult
+    , deleteJob      :: Text -> ClientM JobResult
+
+    , waitForJob     :: ClientM JobResponse -> ClientM JobResult
     }
 
 mkKieApiClient :: BasicAuthData -> KieApiClient
@@ -88,6 +98,10 @@ mkKieApiClient basicAuthData =
         :<|> createProject
         :<|> getProject
         :<|> deleteProject
+        :<|> compileProject
+        :<|> testProject
+        :<|> installProject
+        :<|> deployProject
         :<|> getJob
         :<|> deleteJob
         = client workbenchAPI basicAuthData
@@ -118,5 +132,5 @@ authData = BasicAuthData "testadmin" "admin1234;"
 testSpace :: Space
 testSpace = Space "spaceName" (Just "description") "Jan Hrček" [] "cz.janhrcek"
 
-testProject :: CreateProjectReq
-testProject = CreateProjectReq "jansProject" "this is cool project" "cz.jan" "1.0.0-SNAPSHOT"
+createProjectReq :: CreateProjectReq
+createProjectReq = CreateProjectReq "jansProject" "this is cool project" "cz.jan" "1.0.0-SNAPSHOT"
