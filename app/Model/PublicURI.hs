@@ -1,4 +1,6 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric  #-}
+
 module Model.PublicURI where
 
 import Data.Aeson (FromJSON, ToJSON)
@@ -8,7 +10,4 @@ import GHC.Generics (Generic)
 data PublicURI = PublicURI
     { protocol :: Text
     , uri      :: String
-    } deriving (Eq, Show, Generic)
-
-instance ToJSON PublicURI where
-instance FromJSON PublicURI where
+    } deriving (Eq, Show, Generic, ToJSON, FromJSON)

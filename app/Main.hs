@@ -7,30 +7,35 @@
 module Main where
 
 import Control.Concurrent (threadDelay)
-import Control.Monad (unless)
 import Control.Monad.IO.Class (liftIO)
-import Data.Monoid ((<>))
 import Data.Proxy (Proxy (Proxy))
 import Data.Text (Text)
 import Network.HTTP.Client (defaultManagerSettings, newManager)
 import Servant.API ((:<|>) ((:<|>)), (:>), BasicAuth, BasicAuthData (BasicAuthData), Capture, Delete, Get, JSON, Post, ReqBody)
 import Servant.Client (BaseUrl (BaseUrl), ClientEnv, ClientM, Scheme (Http), client, mkClientEnv, runClientM)
 
-import Model.JobResponse as JobResponse
+import Model.CreateProjectReq as CreateProject
+import Model.JobResponse as Job
 import Model.JobResult as JobResult
 import Model.JobStatus
-import Model.Space
+import Model.ProjectResponse as Project
+import Model.Space as Space
 
 main :: IO ()
 main = do
     env <- initClientEnv baseUrl
     let KieApiClient{..} = mkKieApiClient authData
-        testClient act  = runClientM act env >>= print
-    testClient . waitForJob $ createSpace testSpace
-    testClient getSpaces
-    testClient . getSpace $ name testSpace
-    testClient . waitForJob . deleteSpace $ name testSpace
-    testClient getSpaces
+        testClient description action  = do
+            resp <- runClientM action env
+            putStrLn ("----- " ++ description ++ " -----") >> print resp
+    testClient "Create space" . waitForJob $ createSpace testSpace
+    testClient "Get spaces" getSpaces
+    testClient "Get space" . getSpace $ Space.name testSpace
+    testClient "Create project" . waitForJob $ createProject (Space.name testSpace) testProject
+    testClient "Get projects" . getProjects $ Space.name testSpace
+    testClient "Get project" $ getProject (Space.name testSpace) (CreateProject.name testProject)
+    testClient "Delete project" . waitForJob $ deleteProject (Space.name testSpace) (CreateProject.name testProject)
+    testClient "Delete space" . waitForJob . deleteSpace $ Space.name testSpace
 
 initClientEnv :: BaseUrl -> IO ClientEnv
 initClientEnv bu =
@@ -38,10 +43,17 @@ initClientEnv bu =
 
 type WorkbenchAPI =
     BasicAuth "KIE Workbench Realm" () :>
-          (  "spaces" :> Get '[JSON] [Space]
+          (  -- Spaces
+             "spaces" :> Get '[JSON] [Space]
+        :<|> "spaces" :> ReqBody '[JSON] Space    :> Post '[JSON] JobResponse
         :<|> "spaces" :> Capture "spaceName" Text :> Get '[JSON] Space
         :<|> "spaces" :> Capture "spaceName" Text :> Delete '[JSON] JobResponse
-        :<|> "spaces" :> ReqBody '[JSON] Space    :> Post '[JSON] JobResponse
+             -- Projects
+        :<|> "spaces" :> Capture "spaceName" Text :> "projects" :> Get '[JSON] [ProjectResponse]
+        :<|> "spaces" :> Capture "spaceName" Text :> "projects" :> ReqBody '[JSON] CreateProjectReq :> Post '[JSON] JobResponse
+        :<|> "spaces" :> Capture "spaceName" Text :> "projects" :> Capture "projectName" Text :> Get '[JSON] ProjectResponse
+        :<|> "spaces" :> Capture "spaceName" Text :> "projects" :> Capture "projectName" Text :> Delete '[JSON] JobResponse
+             -- Jobs
         :<|> "jobs"   :> Capture "jobId" Text     :> Get '[JSON] JobResult
         :<|> "jobs"   :> Capture "jobId" Text     :> Delete '[JSON] JobResult
           )
@@ -50,31 +62,50 @@ workbenchAPI :: Proxy WorkbenchAPI
 workbenchAPI = Proxy
 
 data KieApiClient = KieApiClient
-    { getSpaces   :: ClientM [Space]
-    , getSpace    :: Text -> ClientM Space
-    , deleteSpace :: Text -> ClientM JobResponse
-    , createSpace :: Space -> ClientM JobResponse
-    , getJob      :: Text -> ClientM JobResult
-    , deleteJob   :: Text -> ClientM JobResult
-    , waitForJob  :: ClientM JobResponse -> ClientM ()
+    { getSpaces     :: ClientM [Space]
+    , createSpace   :: Space -> ClientM JobResponse
+    , getSpace      :: Text -> ClientM Space
+    , deleteSpace   :: Text -> ClientM JobResponse
+
+    , getProjects   :: Text -> ClientM [ProjectResponse]
+    , createProject :: Text -> CreateProjectReq -> ClientM JobResponse
+    , getProject    :: Text -> Text -> ClientM ProjectResponse
+    , deleteProject :: Text -> Text -> ClientM JobResponse -- TODO replace with newtypes SpaceName, ProjectName, JobId
+
+    , getJob        :: Text -> ClientM JobResult
+    , deleteJob     :: Text -> ClientM JobResult
+
+    , waitForJob    :: ClientM JobResponse -> ClientM JobResult
     }
 
 mkKieApiClient :: BasicAuthData -> KieApiClient
 mkKieApiClient basicAuthData =
-  let getSpaces :<|> getSpace :<|> deleteSpace :<|> createSpace :<|> getJob :<|> deleteJob
+  let getSpaces
+        :<|> createSpace
+        :<|> getSpace
+        :<|> deleteSpace
+        :<|> getProjects
+        :<|> createProject
+        :<|> getProject
+        :<|> deleteProject
+        :<|> getJob
+        :<|> deleteJob
         = client workbenchAPI basicAuthData
 
-      waitForJob  :: ClientM JobResponse -> ClientM ()
+      waitForJob  :: ClientM JobResponse -> ClientM JobResult
       waitForJob job =
-          job >>= waitForFinish . JobResponse.jobId
+          job >>= waitForFinish . Job.jobId
         where
-          waitForFinish :: Text -> ClientM ()
+          waitForFinish :: Text -> ClientM JobResult
           waitForFinish jid = do
-              st <- JobResult.status <$> getJob jid
-              unless (st == SUCCESS || st == FAIL || st == BAD_REQUEST) $ do
-                  liftIO $ putStrLn $ "status was " <> show st
-                  liftIO $ threadDelay 1000000
-                  waitForFinish jid
+              result <- getJob jid
+              let st = JobResult.status result
+              if st == SUCCESS || st == FAIL || st == BAD_REQUEST
+                then return result
+                else do
+                    liftIO $ threadDelay 500000 {- 0.5 s -}
+                    waitForFinish jid
+
   in KieApiClient{..}
 
 -- test data
@@ -86,3 +117,6 @@ authData = BasicAuthData "testadmin" "admin1234;"
 
 testSpace :: Space
 testSpace = Space "spaceName" (Just "description") "Jan Hrček" [] "cz.janhrcek"
+
+testProject :: CreateProjectReq
+testProject = CreateProjectReq "jansProject" "this is cool project" "cz.jan" "1.0.0-SNAPSHOT"

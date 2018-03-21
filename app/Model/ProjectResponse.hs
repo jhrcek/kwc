@@ -1,4 +1,6 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric  #-}
+
 module Model.ProjectResponse where
 
 import Data.Aeson (FromJSON, ToJSON)
@@ -13,7 +15,4 @@ data ProjectResponse = ProjectResponse
   , version     :: Text
   , description :: Text
   , publicURIs  :: [PublicURI]
-  } deriving (Show, Eq, Generic)
-
-instance ToJSON ProjectResponse where
-instance FromJSON ProjectResponse where
+  } deriving (Show, Eq, Generic, ToJSON, FromJSON)
