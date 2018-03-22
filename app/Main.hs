@@ -14,6 +14,7 @@ import Network.HTTP.Client (defaultManagerSettings, newManager)
 import Servant.API ((:<|>) ((:<|>)), (:>), BasicAuth, BasicAuthData (BasicAuthData), Capture, Delete, Get, JSON, Post, ReqBody)
 import Servant.Client (BaseUrl (BaseUrl), ClientEnv, ClientM, Scheme (Http), client, mkClientEnv, runClientM)
 
+import Model.CloneProjectReq as CloneProject
 import Model.CreateProjectReq as CreateProject
 import Model.JobResponse as Job
 import Model.JobResult as JobResult
@@ -32,6 +33,7 @@ main = do
     testClient "Get spaces" getSpaces
     testClient "Get space" . getSpace $ Space.name testSpace
     testClient "Create project" . waitForJob $ createProject (Space.name testSpace) createProjectReq
+    testClient "Clone project" . waitForJob $ cloneProject (Space.name testSpace) cloneProjectReq
     testClient "Get projects" . getProjects $ Space.name testSpace
     testClient "Get project" $ getProject (Space.name testSpace) (CreateProject.name createProjectReq)
     testClient "Delete project" . waitForJob $ deleteProject (Space.name testSpace) (CreateProject.name createProjectReq)
@@ -53,11 +55,14 @@ type WorkbenchAPI =
         :<|> "spaces" :> Capture "spaceName" Text :> "projects" :> ReqBody '[JSON] CreateProjectReq :> Post '[JSON] JobResponse
         :<|> "spaces" :> Capture "spaceName" Text :> "projects" :> Capture "projectName" Text :> Get '[JSON] ProjectResponse
         :<|> "spaces" :> Capture "spaceName" Text :> "projects" :> Capture "projectName" Text :> Delete '[JSON] JobResponse
+              -- Git
+        :<|> "spaces" :> Capture "spaceName" Text :> "git" :> "clone" :> ReqBody '[JSON] CloneProjectReq :> Post '[JSON] JobResponse
              -- Maven
         :<|> "spaces" :> Capture "spaceName" Text :> "projects" :> Capture "projectName" Text :> "maven" :> "compile" :> Post '[JSON] JobResponse
         :<|> "spaces" :> Capture "spaceName" Text :> "projects" :> Capture "projectName" Text :> "maven" :> "test"    :> Post '[JSON] JobResponse
         :<|> "spaces" :> Capture "spaceName" Text :> "projects" :> Capture "projectName" Text :> "maven" :> "install" :> Post '[JSON] JobResponse
         :<|> "spaces" :> Capture "spaceName" Text :> "projects" :> Capture "projectName" Text :> "maven" :> "deploy"  :> Post '[JSON] JobResponse
+
              -- Jobs
         :<|> "jobs"   :> Capture "jobId" Text     :> Get '[JSON] JobResult
         :<|> "jobs"   :> Capture "jobId" Text     :> Delete '[JSON] JobResult
@@ -67,24 +72,26 @@ workbenchAPI :: Proxy WorkbenchAPI
 workbenchAPI = Proxy
 
 data KieApiClient = KieApiClient
-    { getSpaces      :: ClientM [Space]
+    { -- Spaces
+      getSpaces      :: ClientM [Space]
     , createSpace    :: Space -> ClientM JobResponse
     , getSpace       :: Text -> ClientM Space
     , deleteSpace    :: Text -> ClientM JobResponse
-
+    -- Projects
     , getProjects    :: Text -> ClientM [ProjectResponse]
     , createProject  :: Text -> CreateProjectReq -> ClientM JobResponse
     , getProject     :: Text -> Text -> ClientM ProjectResponse
     , deleteProject  :: Text -> Text -> ClientM JobResponse -- TODO replace with newtypes SpaceName, ProjectName, JobId
-
+    -- Git
+    , cloneProject   :: Text -> CloneProjectReq -> ClientM JobResponse
+    -- Maven
     , compileProject :: Text -> Text -> ClientM JobResponse
     , testProject    :: Text -> Text -> ClientM JobResponse
     , installProject :: Text -> Text -> ClientM JobResponse
     , deployProject  :: Text -> Text -> ClientM JobResponse
-
+    -- Jobs
     , getJob         :: Text -> ClientM JobResult
     , deleteJob      :: Text -> ClientM JobResult
-
     , waitForJob     :: ClientM JobResponse -> ClientM JobResult
     }
 
@@ -98,6 +105,7 @@ mkKieApiClient basicAuthData =
         :<|> createProject
         :<|> getProject
         :<|> deleteProject
+        :<|> cloneProject
         :<|> compileProject
         :<|> testProject
         :<|> installProject
@@ -134,3 +142,6 @@ testSpace = Space "spaceName" (Just "description") "Jan Hrček" [] "cz.janhrcek"
 
 createProjectReq :: CreateProjectReq
 createProjectReq = CreateProjectReq "jansProject" "this is cool project" "cz.jan" "1.0.0-SNAPSHOT"
+
+cloneProjectReq :: CloneProjectReq
+cloneProjectReq = CloneProjectReq "My Employee Rostering" "Some description" "" "" "file:///home/hrk/Tmp/Employee-Rostering"
