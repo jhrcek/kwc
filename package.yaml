@@ -15,14 +15,13 @@ category: Web
 description: Please see the README on Github at <https://github.com/jhrcek/kwc#readme>
 
 dependencies:
-- base >= 4.7 && < 5
 - aeson
-- text
-- wreq
-- servant-client
-- servant
+- base >= 4.7 && < 5
 - http-client
 - http-api-data
+- servant
+- servant-client
+- text
 
 executables:
   example-exe:
@@ -32,4 +31,5 @@ executables:
     - -Wall
     - -threaded
     - -rtsopts
+    - -O2
     - -with-rtsopts=-N
