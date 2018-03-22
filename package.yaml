@@ -22,6 +22,7 @@ dependencies:
 - servant-client
 - servant
 - http-client
+- http-api-data
 
 executables:
   example-exe:

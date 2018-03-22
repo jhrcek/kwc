@@ -48,20 +48,20 @@ type WorkbenchAPI =
           (  -- Spaces
              "spaces" :> Get '[JSON] [Space]
         :<|> "spaces" :> ReqBody '[JSON] Space    :> Post '[JSON] JobResponse
-        :<|> "spaces" :> Capture "spaceName" Text :> Get '[JSON] Space
-        :<|> "spaces" :> Capture "spaceName" Text :> Delete '[JSON] JobResponse
+        :<|> "spaces" :> Capture "spaceName" SpaceName :> Get '[JSON] Space
+        :<|> "spaces" :> Capture "spaceName" SpaceName :> Delete '[JSON] JobResponse
              -- Projects
-        :<|> "spaces" :> Capture "spaceName" Text :> "projects" :> Get '[JSON] [ProjectResponse]
-        :<|> "spaces" :> Capture "spaceName" Text :> "projects" :> ReqBody '[JSON] CreateProjectReq :> Post '[JSON] JobResponse
-        :<|> "spaces" :> Capture "spaceName" Text :> "projects" :> Capture "projectName" Text :> Get '[JSON] ProjectResponse
-        :<|> "spaces" :> Capture "spaceName" Text :> "projects" :> Capture "projectName" Text :> Delete '[JSON] JobResponse
+        :<|> "spaces" :> Capture "spaceName" SpaceName :> "projects" :> Get '[JSON] [ProjectResponse]
+        :<|> "spaces" :> Capture "spaceName" SpaceName :> "projects" :> ReqBody '[JSON] CreateProjectReq :> Post '[JSON] JobResponse
+        :<|> "spaces" :> Capture "spaceName" SpaceName :> "projects" :> Capture "projectName" ProjectName :> Get '[JSON] ProjectResponse
+        :<|> "spaces" :> Capture "spaceName" SpaceName :> "projects" :> Capture "projectName" ProjectName :> Delete '[JSON] JobResponse
               -- Git
-        :<|> "spaces" :> Capture "spaceName" Text :> "git" :> "clone" :> ReqBody '[JSON] CloneProjectReq :> Post '[JSON] JobResponse
+        :<|> "spaces" :> Capture "spaceName" SpaceName :> "git" :> "clone" :> ReqBody '[JSON] CloneProjectReq :> Post '[JSON] JobResponse
              -- Maven
-        :<|> "spaces" :> Capture "spaceName" Text :> "projects" :> Capture "projectName" Text :> "maven" :> "compile" :> Post '[JSON] JobResponse
-        :<|> "spaces" :> Capture "spaceName" Text :> "projects" :> Capture "projectName" Text :> "maven" :> "test"    :> Post '[JSON] JobResponse
-        :<|> "spaces" :> Capture "spaceName" Text :> "projects" :> Capture "projectName" Text :> "maven" :> "install" :> Post '[JSON] JobResponse
-        :<|> "spaces" :> Capture "spaceName" Text :> "projects" :> Capture "projectName" Text :> "maven" :> "deploy"  :> Post '[JSON] JobResponse
+        :<|> "spaces" :> Capture "spaceName" SpaceName :> "projects" :> Capture "projectName" ProjectName :> "maven" :> "compile" :> Post '[JSON] JobResponse
+        :<|> "spaces" :> Capture "spaceName" SpaceName :> "projects" :> Capture "projectName" ProjectName :> "maven" :> "test"    :> Post '[JSON] JobResponse
+        :<|> "spaces" :> Capture "spaceName" SpaceName :> "projects" :> Capture "projectName" ProjectName :> "maven" :> "install" :> Post '[JSON] JobResponse
+        :<|> "spaces" :> Capture "spaceName" SpaceName :> "projects" :> Capture "projectName" ProjectName :> "maven" :> "deploy"  :> Post '[JSON] JobResponse
 
              -- Jobs
         :<|> "jobs"   :> Capture "jobId" Text     :> Get '[JSON] JobResult
@@ -75,20 +75,20 @@ data KieApiClient = KieApiClient
     { -- Spaces
       getSpaces      :: ClientM [Space]
     , createSpace    :: Space -> ClientM JobResponse
-    , getSpace       :: Text -> ClientM Space
-    , deleteSpace    :: Text -> ClientM JobResponse
+    , getSpace       :: SpaceName -> ClientM Space
+    , deleteSpace    :: SpaceName -> ClientM JobResponse
     -- Projects
-    , getProjects    :: Text -> ClientM [ProjectResponse]
-    , createProject  :: Text -> CreateProjectReq -> ClientM JobResponse
-    , getProject     :: Text -> Text -> ClientM ProjectResponse
-    , deleteProject  :: Text -> Text -> ClientM JobResponse -- TODO replace with newtypes SpaceName, ProjectName, JobId
+    , getProjects    :: SpaceName -> ClientM [ProjectResponse]
+    , createProject  :: SpaceName -> CreateProjectReq -> ClientM JobResponse
+    , getProject     :: SpaceName -> ProjectName -> ClientM ProjectResponse
+    , deleteProject  :: SpaceName -> ProjectName -> ClientM JobResponse
     -- Git
-    , cloneProject   :: Text -> CloneProjectReq -> ClientM JobResponse
+    , cloneProject   :: SpaceName -> CloneProjectReq -> ClientM JobResponse
     -- Maven
-    , compileProject :: Text -> Text -> ClientM JobResponse
-    , testProject    :: Text -> Text -> ClientM JobResponse
-    , installProject :: Text -> Text -> ClientM JobResponse
-    , deployProject  :: Text -> Text -> ClientM JobResponse
+    , compileProject :: SpaceName -> ProjectName -> ClientM JobResponse
+    , testProject    :: SpaceName -> ProjectName -> ClientM JobResponse
+    , installProject :: SpaceName -> ProjectName -> ClientM JobResponse
+    , deployProject  :: SpaceName -> ProjectName -> ClientM JobResponse
     -- Jobs
     , getJob         :: Text -> ClientM JobResult
     , deleteJob      :: Text -> ClientM JobResult
@@ -121,8 +121,8 @@ mkKieApiClient basicAuthData =
           waitForFinish :: Text -> ClientM JobResult
           waitForFinish jid = do
               result <- getJob jid
-              let st = JobResult.status result
-              if st == SUCCESS || st == FAIL || st == BAD_REQUEST
+              let status = JobResult.status result
+              if status `elem` [SUCCESS, FAIL, BAD_REQUEST, SERVER_ERROR]
                 then return result
                 else do
                     liftIO $ threadDelay 500000 {- 0.5 s -}
@@ -138,10 +138,10 @@ authData :: BasicAuthData
 authData = BasicAuthData "testadmin" "admin1234;"
 
 testSpace :: Space
-testSpace = Space "spaceName" (Just "description") "Jan Hrček" [] "cz.janhrcek"
+testSpace = Space (SpaceName "spaceName") (Just "description") "Jan Hrček" [] "cz.janhrcek"
 
 createProjectReq :: CreateProjectReq
-createProjectReq = CreateProjectReq "jansProject" "this is cool project" "cz.jan" "1.0.0-SNAPSHOT"
+createProjectReq = CreateProjectReq (ProjectName "jansProject") "this is cool project" "cz.jan" "1.0.0-SNAPSHOT"
 
 cloneProjectReq :: CloneProjectReq
 cloneProjectReq = CloneProjectReq "My Employee Rostering" "Some description" "" "" "file:///home/hrk/Tmp/Employee-Rostering"
